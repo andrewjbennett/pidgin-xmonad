@@ -6,6 +6,7 @@ GTK_PIDGIN_INCLUDES= `pkg-config --cflags gtk+-2.0 pidgin`
 GTK_PREFIX=/usr/local
 GTK_PREFIX2=/usr
 
+CC= clang
 CFLAGS= -O2 -Wall -fpic -g
 LDFLAGS= -shared
 
@@ -27,7 +28,7 @@ INCLUDES = \
       $(GTK_PIDGIN_INCLUDES)
 
 xmobar-notification.so: xmobar-notification.c
-	gcc xmobar-notification.c $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o xmobar-notification.so
+	$(CC) xmobar-notification.c $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o xmobar-notification.so
 
 install: xmobar-notification.so
 	mkdir -p ~/.purple/plugins/
