@@ -33,9 +33,6 @@ xmobar-notification.so: xmobar-notification.c
 install: xmobar-notification.so
 	mkdir -p ~/.purple/plugins/
 	cp xmobar-notification.so ~/.purple/plugins/
-	chmod +x _pidginnot.sh
-	cp _pidginnot.sh ~/.pidginnot.sh
-	touch ~/.pidginx
 
 uninstall:
 	rm -f ~/.purple/plugins/xmobar-notification.so

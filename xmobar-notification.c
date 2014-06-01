@@ -16,16 +16,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  * Sarah Bennett (sjb01230@gmail.com), 2011
+ * Edward O'Callaghan (eocallaghan@alterapraxis.com), 2014
  *
  */
 
 #define PURPLE_PLUGINS
 
-#define VERSION "0.1"
+#define VERSION "0.2"
 
 #include <glib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/stat.h>
 
 #include "notify.h"
 #include "plugin.h"
@@ -40,40 +42,39 @@
 #include "gtkblist.h"
 
 /*
- * Writes to a file that can be displayed on the xmobar as an unobtrusive way of being notified of unread messages
+ * Writes to a file that can be displayed on the xmobar as an unobtrusive way
+ * of being notified of unread messages
  *
  * end goal: have it look something like "you have $n unread messages"
  */
 
 void bar_set(gboolean state) {
-	const char *filename=purple_prefs_get_string(
-	                                 "/plugins/gtk/gtk-sarah-barnot/filename");
-	FILE *file=NULL;
+	const char *pipe = purple_prefs_get_string(
+	                                 "/plugins/gtk/gtk-xmobar-notice/filename");
+	FILE *fd = NULL;
 
-	file=fopen(filename, "w");
-	if(file==NULL) {
-		purple_debug_error("bar-notification",
-		                 "Error opening file '%s'\n",filename);
-		return;
-	}
+	/* !! Security !! 0600 ensures no one else can write all over our xmobar */
+	mkfifo(pipe, 0600);
+	fd = fopen(pipe, "w");
 
-	if(state) {
-		fputs("you have unread messages", file);
-	} else {
-		//fputs("0", file);
-	}
+	if (fd != NULL && state != 0)
+		fputs("you have unread messages", fd);
 
-	fclose(file);
+	purple_debug_error("bar-notification", "Error opening fifo named pipe: \
+						%s\n", pipe);
+
+	fclose(fd);
+	unlink(pipe);
 }
 
 GList *get_pending_list(guint max) {
-	const char *im=purple_prefs_get_string("/plugins/gtk/gtk-sarah-barnot/im");
+	const char *im=purple_prefs_get_string("/plugins/gtk/gtk-xmobar-notice/im");
 	const char *chat=purple_prefs_get_string(
-	                                     "/plugins/gtk/gtk-sarah-barnot/chat");
+	                                     "/plugins/gtk/gtk-xmobar-notice/chat");
 	GList *l_im = NULL;
 	GList *l_chat = NULL;
 
-	
+
 	if (im != NULL && strcmp(im, "always") == 0) {
 		l_im = pidgin_conversations_find_unseen_list(PURPLE_CONV_TYPE_IM,
 		                                             PIDGIN_UNSEEN_TEXT,
@@ -102,7 +103,7 @@ GList *get_pending_list(guint max) {
 		return l_chat;
 }
 
-static void lednot_conversation_updated(PurpleConversation *conv, 
+static void lednot_conversation_updated(PurpleConversation *conv,
                                         PurpleConvUpdateType type) {
 	GList *list;
 
@@ -136,12 +137,12 @@ static GtkWidget *plugin_config_frame(PurplePlugin *plugin) {
 	gtk_container_set_border_width(GTK_CONTAINER(frame), 12);
 
 	vbox = pidgin_make_frame(frame, "Inform about unread...");
-	vbox2 = pidgin_make_frame(frame, "Hardware setup:");
+	vbox2 = pidgin_make_frame(frame, "Filepath setup:");
 	sg = gtk_size_group_new(GTK_SIZE_GROUP_HORIZONTAL);
 
 	dd = pidgin_prefs_dropdown(vbox, "Instant Messages:",
 	                           PURPLE_PREF_STRING,
-	                           "/plugins/gtk/gtk-sarah-barnot/im",
+	                           "/plugins/gtk/gtk-xmobar-notice/im",
 	                           "Never", "never",
 	                           "In hidden conversations", "hidden",
 	                           "Always", "always",
@@ -150,7 +151,7 @@ static GtkWidget *plugin_config_frame(PurplePlugin *plugin) {
 
 	dd = pidgin_prefs_dropdown(vbox, "Chat Messages:",
 	                        PURPLE_PREF_STRING,
-	                        "/plugins/gtk/gtk-sarah-barnot/chat",
+	                        "/plugins/gtk/gtk-xmobar-notice/chat",
 	                        "Never", "never",
 	                        "When my nick is said", "nick",
 	                        "Always", "always",
@@ -158,18 +159,18 @@ static GtkWidget *plugin_config_frame(PurplePlugin *plugin) {
 	gtk_size_group_add_widget(sg, dd);
 
 	ent=pidgin_prefs_labeled_entry(vbox2,"File to be displayed on xmobar:",
-	                              "/plugins/gtk/gtk-sarah-barnot/filename",sg);
+	                              "/plugins/gtk/gtk-xmobar-notice/filename",sg);
 
 	gtk_widget_show_all(frame);
 	return frame;
 }
 
 static void init_plugin(PurplePlugin *plugin) {
-	purple_prefs_add_none("/plugins/gtk/gtk-sarah-barnot");
-	purple_prefs_add_string("/plugins/gtk/gtk-sarah-barnot/im", "always");
-	purple_prefs_add_string("/plugins/gtk/gtk-sarah-barnot/chat", "nick");
-	purple_prefs_add_string("/plugins/gtk/gtk-sarah-barnot/filename",
-	                        "/proc/acpi/asus/mled");
+	purple_prefs_add_none("/plugins/gtk/gtk-xmobar-notice");
+	purple_prefs_add_string("/plugins/gtk/gtk-xmobar-notice/im", "always");
+	purple_prefs_add_string("/plugins/gtk/gtk-xmobar-notice/chat", "nick");
+	purple_prefs_add_string("/plugins/gtk/gtk-xmobar-notice/filename",
+	                        "/tmp/pidginx");
 }
 
 static gboolean plugin_load(PurplePlugin *plugin) {
@@ -202,13 +203,13 @@ static PurplePluginInfo info = {
     NULL,
     PURPLE_PRIORITY_DEFAULT,
 
-    "gtk-sarah-barnot",
+    "gtk-xmobar-notice",
     "xmobar notifications",
     VERSION,
 
     "xmobar notification integration",
     "Writes to a file that can be displayed on your xmobar in xmonad for an unintrusive way of notifying you of new messages",
-    "Sarah Bennett <sarahb@cse.unsw.edu.au>",
+    "Sarah Bennett <sarahb@cse.unsw.edu.au>, Edward O'Callaghan <eocallaghan@alterapraxis.com>",
     "http://dopaminecat.com",
 
     plugin_load,   /* load */
@@ -222,4 +223,3 @@ static PurplePluginInfo info = {
 };
 
 PURPLE_INIT_PLUGIN(lednot, init_plugin, info);
-
