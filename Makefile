@@ -30,6 +30,7 @@ xmobar-notification.so: xmobar-notification.c
 	gcc xmobar-notification.c $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o xmobar-notification.so
 
 install: xmobar-notification.so
+	mkdir -p ~/.purple/plugins/
 	cp xmobar-notification.so ~/.purple/plugins/
 
 uninstall:
@@ -37,4 +38,3 @@ uninstall:
 
 clean:
 	rm -f xmobar-notification.so
-
